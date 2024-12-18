@@ -61,7 +61,7 @@ static void pin_a_debounce_cb(void *arg)
         if (gpio_get_level(encoder_handle->pin_a) == 0)
         {
             encoder_tick_t encoder_tick = {
-                .direction = (encoder_handle->pin_b_value == 1) ? -1 : 1,
+                .direction = (encoder_handle->pin_b_value == 1) ? 1 : -1,
                 .time = esp_timer_get_time()};
             xQueueSendFromISR(encoder_handle->tick_queue, &encoder_tick, NULL);
         }
@@ -158,7 +158,7 @@ esp_err_t encoder_reader_start(encoder_reader_handle_t encoder_handle)
         .pin_bit_mask = (1ULL << encoder_handle->pin_a | 1ULL << encoder_handle->pin_b | 1ULL << encoder_handle->pin_sw),
         .mode = GPIO_MODE_INPUT,
         .intr_type = GPIO_INTR_ANYEDGE, // Trigger on rising and falling edges
-        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
     };
     gpio_config(&io_conf);
     gpio_set_intr_type(encoder_handle->pin_a, GPIO_INTR_NEGEDGE);
