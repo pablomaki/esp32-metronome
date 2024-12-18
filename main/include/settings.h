@@ -19,6 +19,7 @@
 #define OUTPUT_ACTIVATION_DURATION 100 // milliseconds
 #define BPM_START 80                   // BPM to start with
 #define SIGNATURE_START 0              // index
+#define INVERT_SCREEN 1                // 0 for non inverted, 1 to invert
 
 // INPUT
 #define FAST_CHANGE_MULTIPLIER 5
