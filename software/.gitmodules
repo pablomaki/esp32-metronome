@@ -1,3 +1,0 @@
-[submodule "components/esp-idf-ssd1306"]
-	path = components/esp-idf-ssd1306
-	url = https://github.com/pablomaki/esp-idf-ssd1306.git/
