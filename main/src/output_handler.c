@@ -37,8 +37,9 @@ static bool IRAM_ATTR output_timer_alarm(gptimer_handle_t timer, const gptimer_a
     return (high_task_awoken == pdTRUE);
 }
 
-void click(uint8_t x)
+void click(uint8_t x, bool led_on)
 {
+    gpio_set_level(LED_PIN, led_on); // Set pin high
     for (int n = 0; n < x; n++)
     {
         gpio_set_level(OUTPUT_PIN, true);                            // Set pin high
@@ -46,6 +47,7 @@ void click(uint8_t x)
         gpio_set_level(OUTPUT_PIN, false);
         vTaskDelay(OUTPUT_ACTIVATION_DURATION / 4 / portTICK_PERIOD_MS); // Delay for y milliseconds
     }
+    gpio_set_level(LED_PIN, false); // Set pin high
 }
 
 void output_handler_task(void *arg)
@@ -69,11 +71,11 @@ void output_handler_task(void *arg)
             // Activate and deactivate the output after predermined duration
             if (beat == 1)
             {
-                click(2);
+                click(2, true);
             }
             else
             {
-                click(1);
+                click(1, false);
             }
 
             if (beat >= signature_modes[get_signature_mode()])
@@ -107,6 +109,8 @@ esp_err_t start_output_handler(void)
     /* Set the GPIO as a push/pull output */
     gpio_reset_pin(OUTPUT_PIN);
     gpio_set_direction(OUTPUT_PIN, GPIO_MODE_OUTPUT);
+    gpio_reset_pin(LED_PIN);
+    gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
 
     // Create timer handle
     gptimer_handle_t gptimer = NULL;

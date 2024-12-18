@@ -11,7 +11,8 @@
 #define SSD1306_SCL_PIN 23
 #define SSD1306_RST_PIN -1
 // OUTPUT
-#define OUTPUT_PIN 2
+#define OUTPUT_PIN 21
+#define LED_PIN 2
 
 // ******* OTHER SETTINGS *******
 // OUTPUT

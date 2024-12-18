@@ -5,9 +5,10 @@
  * Click the output x times
  *
  * @param x. How many times to click
+ * @param led_on. Bool for turning the led on for the duration or not
  * @return void.
  */
-void click(uint8_t x);
+void click(uint8_t x, bool led_on);
 
 /**
  * Output handler, activate output in case the flag is set
