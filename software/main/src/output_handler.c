@@ -31,8 +31,21 @@ static bool IRAM_ATTR output_timer_alarm(gptimer_handle_t timer, const gptimer_a
     xQueueSendFromISR(queue, &signal, &high_task_awoken);
 
     // Set new alarm based on the current bpm
+    uint64_t alarm_count;
+    if (get_beat() == 0)
+    {
+        alarm_count = edata->alarm_value + 60 * 1000000 / (bpm * 4.0);
+    }
+    else if (get_beat() == 1)
+    {
+        alarm_count = edata->alarm_value + 60 * 1000000 / (bpm * 4.0 / 3.0);
+    }
+    else
+    {
+        alarm_count = edata->alarm_value + 60 * 1000000 / bpm;
+    }
     gptimer_alarm_config_t alarm_config = {
-        .alarm_count = edata->alarm_value + 60 * 1000000 / bpm}; // bpm
+        .alarm_count = alarm_count}; // bpm
     gptimer_set_alarm_action(timer, &alarm_config);
     return (high_task_awoken == pdTRUE);
 }
@@ -60,7 +73,7 @@ void output_handler_task(void *arg)
     QueueHandle_t output_activation_queue = (QueueHandle_t)arg; // Encoder tick queue
 
     // Track the current beat count
-    uint16_t beat = 1;
+    // uint16_t beat = 0;
     bool signal;
 
     while (1)
@@ -69,21 +82,15 @@ void output_handler_task(void *arg)
         if (xQueueReceive(output_activation_queue, &signal, portMAX_DELAY))
         {
             // Activate and deactivate the output after predermined duration
-            if (beat == 1)
+            if (get_beat() == 0 || get_beat() == 1)
             {
-                click(2, true);
+                click(1, true);
             }
             else
             {
                 click(1, false);
             }
-
-            if (beat >= signature_modes[get_signature_mode()])
-            {
-                beat = 1;
-                continue;
-            }
-            beat++;
+            increment_beat();
         }
         vTaskDelay(pdMS_TO_TICKS(10)); // Adjust the delay as needed
     }

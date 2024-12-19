@@ -5,22 +5,52 @@
 uint16_t bpm_selected = BPM_START;         // Baseline bpm
 uint16_t bpm_candidate = BPM_START;        // Baseline bpm
 uint16_t signature_mode = SIGNATURE_START; // Baseline bpm
+uint8_t current_beat = 0;                  // Starting beat
 SemaphoreHandle_t selected_bpm_semaphore = NULL;
 SemaphoreHandle_t candidate_bpm_semaphore = NULL;
 SemaphoreHandle_t signature_semaphore = NULL;
+SemaphoreHandle_t beat_semaphore = NULL;
 
 esp_err_t init_semaphores(void)
 {
     selected_bpm_semaphore = xSemaphoreCreateMutex();
     candidate_bpm_semaphore = xSemaphoreCreateMutex();
     signature_semaphore = xSemaphoreCreateMutex();
+    beat_semaphore = xSemaphoreCreateMutex();
 
     // Check that semaphore creation succeeded
-    if (selected_bpm_semaphore == NULL || candidate_bpm_semaphore == NULL || signature_semaphore == NULL)
+    if (selected_bpm_semaphore == NULL || candidate_bpm_semaphore == NULL || signature_semaphore == NULL || beat_semaphore == NULL)
     {
         return ESP_FAIL;
     }
     return ESP_OK;
+}
+
+uint8_t get_beat()
+{
+    uint16_t beat = 0;
+    if (xSemaphoreTake(beat_semaphore, portMAX_DELAY) == pdTRUE)
+    {
+        beat = current_beat;
+        xSemaphoreGive(beat_semaphore); // Release the mutex
+    }
+    return beat;
+}
+
+void increment_beat()
+{
+    if (xSemaphoreTake(beat_semaphore, portMAX_DELAY) == pdTRUE)
+    {
+        if (current_beat >= signature_modes[get_signature_mode()])
+        {
+            current_beat = 0;
+        }
+        else
+        {
+            current_beat++;
+        }
+        xSemaphoreGive(beat_semaphore); // Release the mutex
+    }
 }
 
 void change_signature_mode(void)

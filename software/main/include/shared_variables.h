@@ -15,6 +15,22 @@
 esp_err_t init_semaphores(void);
 
 /**
+ * Return current beat
+ *
+ * @param void
+ * @return : current beat.
+ */
+uint8_t get_beat(void);
+
+/**
+ * Increment beat (reset if past signature mode)
+ *
+ * @param void
+ * @return void.
+ */
+void increment_beat();
+
+/**
  * Change signature mode
  *
  * @param void
