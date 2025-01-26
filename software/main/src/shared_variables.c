@@ -2,14 +2,16 @@
 #include "settings.h"
 #include "resources.h"
 
-uint16_t bpm_selected = BPM_START;         // Baseline bpm
-uint16_t bpm_candidate = BPM_START;        // Baseline bpm
-uint16_t signature_mode = SIGNATURE_START; // Baseline bpm
-uint8_t current_beat = 0;                  // Starting beat
+esp_system_state_t system_state = SYSTEM_ON; // System ON/OFF state
+uint16_t bpm_selected = BPM_START;           // Baseline bpm
+uint16_t bpm_candidate = BPM_START;          // Baseline bpm
+uint16_t signature_mode = SIGNATURE_START;   // Baseline bpm
+uint8_t current_beat = 1;                    // Starting beat
 SemaphoreHandle_t selected_bpm_semaphore = NULL;
 SemaphoreHandle_t candidate_bpm_semaphore = NULL;
 SemaphoreHandle_t signature_semaphore = NULL;
 SemaphoreHandle_t beat_semaphore = NULL;
+SemaphoreHandle_t system_state_semaphore = NULL;
 
 esp_err_t init_semaphores(void)
 {
@@ -17,9 +19,10 @@ esp_err_t init_semaphores(void)
     candidate_bpm_semaphore = xSemaphoreCreateMutex();
     signature_semaphore = xSemaphoreCreateMutex();
     beat_semaphore = xSemaphoreCreateMutex();
+    system_state_semaphore = xSemaphoreCreateMutex();
 
     // Check that semaphore creation succeeded
-    if (selected_bpm_semaphore == NULL || candidate_bpm_semaphore == NULL || signature_semaphore == NULL || beat_semaphore == NULL)
+    if (selected_bpm_semaphore == NULL || candidate_bpm_semaphore == NULL || signature_semaphore == NULL || beat_semaphore == NULL || system_state_semaphore == NULL)
     {
         return ESP_FAIL;
     }
@@ -28,7 +31,7 @@ esp_err_t init_semaphores(void)
 
 uint8_t get_beat()
 {
-    uint16_t beat = 0;
+    uint16_t beat = 1;
     if (xSemaphoreTake(beat_semaphore, portMAX_DELAY) == pdTRUE)
     {
         beat = current_beat;
@@ -43,7 +46,7 @@ void increment_beat()
     {
         if (current_beat >= signature_modes[get_signature_mode()])
         {
-            current_beat = 0;
+            current_beat = 1;
         }
         else
         {
@@ -145,4 +148,33 @@ bool bpm_selcted(void)
         xSemaphoreGive(selected_bpm_semaphore);  // Release the mutex
     }
     return equal;
+}
+
+esp_system_state_t get_system_state(void)
+{
+    esp_system_state_t state = SYSTEM_ON;
+    if (xSemaphoreTake(system_state_semaphore, portMAX_DELAY) == pdTRUE)
+    {
+        state = system_state;
+        xSemaphoreGive(system_state_semaphore);  // Release the mutex
+    }
+    return state;
+}
+
+void switch_system_off(void)
+{
+    if (xSemaphoreTake(system_state_semaphore, portMAX_DELAY) == pdTRUE)
+    {
+        system_state = SYSTEM_OFF;
+        xSemaphoreGive(system_state_semaphore);  // Release the mutex
+    }
+}
+
+void switch_system_on(void)
+{    
+    if (xSemaphoreTake(system_state_semaphore, portMAX_DELAY) == pdTRUE)
+    {
+        system_state = SYSTEM_ON;
+        xSemaphoreGive(system_state_semaphore);  // Release the mutex
+    }
 }

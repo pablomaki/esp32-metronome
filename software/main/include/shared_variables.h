@@ -7,6 +7,16 @@
 #include <stdbool.h>
 
 /**
+ * @brief System state typedef
+ */
+typedef enum
+{
+    SYSTEM_OFF,
+    SYSTEM_ON,
+} esp_system_state_t;
+
+
+/**
  * Initialize the semaphores
  *
  * @param void
@@ -93,5 +103,29 @@ void reset_candidate_bpm(void);
  * @return candidate bpm == selected bpm.
  */
 bool bpm_selcted(void);
+
+/**
+ * Get system state
+ *
+ * @param void
+ * @return current system state
+ */
+esp_system_state_t get_system_state(void);
+
+/**
+ * Switch system off
+ *
+ * @param void
+ * @return void
+ */
+void switch_system_off(void);
+
+/**
+ * Switch system on
+ *
+ * @param void
+ * @return void
+ */
+void switch_system_on(void);
 
 #endif // SHARED_VARIABLES_H

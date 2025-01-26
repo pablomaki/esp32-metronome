@@ -16,10 +16,10 @@
 
 // ******* OTHER SETTINGS *******
 // OUTPUT
-#define OUTPUT_ACTIVATION_DURATION 100 // milliseconds
-#define BPM_START 80                   // BPM to start with
-#define SIGNATURE_START 0              // index
-#define INVERT_SCREEN 1                // 0 for non inverted, 1 to invert
+#define OUTPUT_ACTIVATION_DURATION 50 // milliseconds
+#define BPM_START 80                  // BPM to start with
+#define SIGNATURE_START 0             // index
+#define INVERT_SCREEN 1               // 0 for non inverted, 1 to invert
 
 // INPUT
 #define FAST_CHANGE_MULTIPLIER 5
@@ -28,6 +28,7 @@
 #define FAST_CHANGE_EXPIRE_US 1E6 // microseconds
 #define ENC_A_DEBOUNCE 1000       // microseconds
 #define ENC_B_DEBOUNCE 1000       // microseconds
-#define ENC_SW_DEBOUNCE 100000    // microseconds
+#define ENC_SW_DEBOUNCE 200000    // microseconds
+#define ENC_SW_LONGPRESS 1000000  // microseconds
 
 #endif // SETTINGS_H

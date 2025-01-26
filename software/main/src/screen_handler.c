@@ -63,28 +63,36 @@ void screen_update_handler_task(void *arg)
     x_last_wake_time = xTaskGetTickCount();
     while (true)
     {
-        // Set contrast accordingly
-        ssd1306_contrast(&dev, is_screen_dim() ? 0x00 : 0xFF);
-
-        // Display BPM and the signature
-        // Parse necessary informatiion from bpm variable and determine if blinking should be on
-        uint16_t index_array[4];
-        get_indexes(index_array);
-        for (int page = 0; page < 8; page++)
+        // System off state, clear the screen, otherwise display BPM and the signature
+        if (get_system_state() == SYSTEM_OFF)
         {
-            if (INVERT_SCREEN)
+            // Clear the screen
+            ssd1306_clear_screen(&dev, false);
+        }
+        else
+        {
+            // Set contrast accordingly
+            ssd1306_contrast(&dev, is_screen_dim() ? 0x00 : 0xFF);
+
+            // Parse necessary informatiion from bpm variable and determine if blinking should be on
+            uint16_t index_array[4];
+            get_indexes(index_array);
+            for (int page = 0; page < 8; page++)
             {
-                ssd1306_display_image(&dev, page, 96, &segment_image_signatures[index_array[0] + page * 32], 32);
-                ssd1306_display_image(&dev, page, 70, &segment_image_numbers[index_array[1] + page * 32], 32);
-                ssd1306_display_image(&dev, page, 35, &segment_image_numbers[index_array[2] + page * 32], 32);
-                ssd1306_display_image(&dev, page, 0, &segment_image_numbers[index_array[3] + page * 32], 32);
-            }
-            else
-            {
-                ssd1306_display_image(&dev, page, 0, &segment_image_signatures[index_array[0] + page * 32], 32);
-                ssd1306_display_image(&dev, page, 26, &segment_image_numbers[index_array[1] + page * 32], 32);
-                ssd1306_display_image(&dev, page, 61, &segment_image_numbers[index_array[2] + page * 32], 32);
-                ssd1306_display_image(&dev, page, 96, &segment_image_numbers[index_array[3] + page * 32], 32);
+                if (INVERT_SCREEN)
+                {
+                    ssd1306_display_image(&dev, page, 96, &segment_image_signatures[index_array[0] + page * 32], 32);
+                    ssd1306_display_image(&dev, page, 70, &segment_image_numbers[index_array[1] + page * 32], 32);
+                    ssd1306_display_image(&dev, page, 35, &segment_image_numbers[index_array[2] + page * 32], 32);
+                    ssd1306_display_image(&dev, page, 0, &segment_image_numbers[index_array[3] + page * 32], 32);
+                }
+                else
+                {
+                    ssd1306_display_image(&dev, page, 0, &segment_image_signatures[index_array[0] + page * 32], 32);
+                    ssd1306_display_image(&dev, page, 26, &segment_image_numbers[index_array[1] + page * 32], 32);
+                    ssd1306_display_image(&dev, page, 61, &segment_image_numbers[index_array[2] + page * 32], 32);
+                    ssd1306_display_image(&dev, page, 96, &segment_image_numbers[index_array[3] + page * 32], 32);
+                }
             }
         }
         vTaskDelayUntil(&x_last_wake_time, x_frequency);
@@ -156,7 +164,7 @@ esp_err_t start_screen_handler(void)
     }
     if (ret != ESP_OK)
     {
-        ESP_LOGE(TAG, "Segment image memory allocation failed.");
+        ESP_LOGE(TAG, "Segment image conversion failed.");
         return ESP_FAIL;
     }
     if (INVERT_SCREEN)
@@ -169,7 +177,7 @@ esp_err_t start_screen_handler(void)
     }
     if (ret != ESP_OK)
     {
-        ESP_LOGE(TAG, "Segment image buffer memory allocation failed.");
+        ESP_LOGE(TAG, "Segment image conversion failed.");
         return ESP_FAIL;
     }
 

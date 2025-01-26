@@ -1,9 +1,43 @@
 #include "encoder_handler.h"
 #include "shared_variables.h"
+#include "esp_sleep.h"
 
 action_t action_select = {0, 0, 0};
 action_t action_up = {0, 0, 1};
 action_t action_down = {0, 0, -1};
+
+void handle_sleep_mode(encoder_reader_handle_t encoder)
+{
+    // Enter sleep mode with SW pin as the wakeup
+    static const char *TAG = "encoder_handler_task";
+    ESP_LOGI(TAG, "Sleep mode requested, handling request");
+
+    // Turn off the screen, LED and output device. Wait for the action to take effect
+    switch_system_off();
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    // Disable existing interrupt
+    encoder_reader_disable(encoder);
+
+    // Enable ENC_SW_PIN as sleep wakeup pin
+    gpio_wakeup_enable(ENC_SW_PIN, GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    ESP_LOGI(TAG, "Waiting for GPIO%d to go high.", ENC_SW_PIN);
+    while (gpio_get_level(ENC_SW_PIN) == 0) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    // Enter sleep mode
+    ESP_LOGI(TAG, "Entring sleep mode... Wake up configured to GPIO%d", ENC_SW_PIN);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_light_sleep_start();
+
+    // Exit sleep mode. Wait for a bit before switching the system on to avoid unnecessary GPIO callbacks
+    ESP_LOGI(TAG, "Exiting sleep mode, enabling interrput back for GPIO%d pin.", ENC_SW_PIN);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    switch_system_on();
+    encoder_reader_enable(encoder);
+}
 
 void handle_select(int8_t prev_direction, encoder_tick_t *tick)
 {
@@ -13,24 +47,37 @@ void handle_select(int8_t prev_direction, encoder_tick_t *tick)
     action_up.consecutive_ticks = 0;
     action_down.consecutive_ticks = 0;
 
-    // In case of doubleclick, change signature mode and reset double click counter
-    if (tick->time - action_select.prev_tick_time < DOUBLE_CLICK_US && tick->direction == prev_direction && action_select.consecutive_ticks > 0)
+    // In case the selected_bpm differs from the candidate bpm, change bpm to the selected one
+    if (get_selected_bpm() != get_candidate_bpm())
+    {
+        ESP_LOGI(TAG, "Changing the bpm to %d", get_candidate_bpm());
+        select_bpm();
+    }
+    // In case the selected bpm is the same as the candidate bpm, change the signature mode
+    else
     {
         ESP_LOGI(TAG, "Changing the signature mode");
         change_signature_mode();
-        action_select.consecutive_ticks = 0;
     }
-    // In case of single click, select the bpm
-    else
-    {
-        // Select the current bpm
-        ESP_LOGI(TAG, "Changing the bpm to %d", get_candidate_bpm());
-        select_bpm();
 
-        // Update select button info and set direction as previous direction
-        action_select.consecutive_ticks++;
-        action_select.prev_tick_time = tick->time;
-    }
+    // // In case of doubleclick, change signature mode and reset double click counter
+    // if (tick->time - action_select.prev_tick_time < DOUBLE_CLICK_US && tick->direction == prev_direction && action_select.consecutive_ticks > 0)
+    // {
+    //     ESP_LOGI(TAG, "Changing the signature mode");
+    //     change_signature_mode();
+    //     action_select.consecutive_ticks = 0;
+    // }
+    // // In case of single click, select the bpm
+    // else
+    // {
+    //     // Select the current bpm
+    //     ESP_LOGI(TAG, "Changing the bpm to %d", get_candidate_bpm());
+    //     select_bpm();
+
+    //     // Update select button info and set direction as previous direction
+    //     action_select.consecutive_ticks++;
+    //     action_select.prev_tick_time = tick->time;
+    // }
 }
 
 int8_t handle_up_down(int8_t prev_direction, encoder_tick_t *tick, action_t *action)
@@ -72,7 +119,9 @@ void encoder_handler_task(void *arg)
     ESP_LOGI(TAG, "Encoder handler task initiated.");
 
     // Unpack the necessary parameters
-    QueueHandle_t encoder_tick_queue = (QueueHandle_t)arg; // Encoder tick queue
+    void** args = (void**)arg;
+    encoder_reader_handle_t encoder = (encoder_reader_handle_t)args[0];
+    QueueHandle_t encoder_tick_queue = (QueueHandle_t)args[1];
 
     // Define necessary parameters
     encoder_tick_t tick;
@@ -89,6 +138,10 @@ void encoder_handler_task(void *arg)
                 handle_select(prev_direction, &tick);
                 prev_direction = tick.direction;
                 continue;
+            }
+            else if (tick.direction == 10)
+            {
+                handle_sleep_mode(encoder);
             }
             // Handle down click and get multiplier for changing the bpm value
             else if (tick.direction == -1)
@@ -144,6 +197,7 @@ esp_err_t start_encoder_handler(void)
         .a_debounce_us = ENC_A_DEBOUNCE,
         .b_debounce_us = ENC_B_DEBOUNCE,
         .sw_debounce_us = ENC_SW_DEBOUNCE,
+        .sw_longpress_us = ENC_SW_LONGPRESS,
         .tick_queue = encoder_action_queue,
     };
 
@@ -164,8 +218,13 @@ esp_err_t start_encoder_handler(void)
     }
 
     // Setup task parameters and start the task
+    // Create a void* array to hold both arguments
+    void* args[2];
+    args[0] = (void*)encoder;              // Cast encoder to void*
+    args[1] = (void*)encoder_action_queue; // Cast queue to void*
+
     BaseType_t x_returned;
-    x_returned = xTaskCreate(encoder_handler_task, "encoder_handler_task", 2048, (void *)encoder_action_queue, 10, NULL);
+    x_returned = xTaskCreate(encoder_handler_task, "encoder_handler_task", 2048, (void *)args, 10, NULL);
     if (x_returned != pdPASS)
     {
         ESP_LOGE(TAG, "Encoder handler task creation failed.");

@@ -31,36 +31,26 @@ static bool IRAM_ATTR output_timer_alarm(gptimer_handle_t timer, const gptimer_a
     xQueueSendFromISR(queue, &signal, &high_task_awoken);
 
     // Set new alarm based on the current bpm
-    uint64_t alarm_count;
-    if (get_beat() == 0)
-    {
-        alarm_count = edata->alarm_value + 60 * 1000000 / (bpm * 4.0);
-    }
-    else if (get_beat() == 1)
-    {
-        alarm_count = edata->alarm_value + 60 * 1000000 / (bpm * 4.0 / 3.0);
-    }
-    else
-    {
-        alarm_count = edata->alarm_value + 60 * 1000000 / bpm;
-    }
     gptimer_alarm_config_t alarm_config = {
-        .alarm_count = alarm_count}; // bpm
+        .alarm_count = edata->alarm_value + 60 * 1000000 / bpm}; // bpm
     gptimer_set_alarm_action(timer, &alarm_config);
     return (high_task_awoken == pdTRUE);
 }
 
-void click(uint8_t x, bool led_on)
+void click(bool long_click, bool led_on)
 {
-    gpio_set_level(LED_PIN, led_on); // Set pin high
-    for (int n = 0; n < x; n++)
+    gpio_set_level(LED_PIN, led_on);  // Set led on if requested
+    gpio_set_level(OUTPUT_PIN, true); // Set pin high
+    if (long_click)
     {
-        gpio_set_level(OUTPUT_PIN, true);                            // Set pin high
-        vTaskDelay(OUTPUT_ACTIVATION_DURATION / portTICK_PERIOD_MS); // Delay for y milliseconds
-        gpio_set_level(OUTPUT_PIN, false);
-        vTaskDelay(OUTPUT_ACTIVATION_DURATION / 4 / portTICK_PERIOD_MS); // Delay for y milliseconds
+        vTaskDelay(OUTPUT_ACTIVATION_DURATION * 2.0 / portTICK_PERIOD_MS); // Delay for y milliseconds
     }
-    gpio_set_level(LED_PIN, false); // Set pin high
+    else
+    {
+        vTaskDelay(OUTPUT_ACTIVATION_DURATION / portTICK_PERIOD_MS); // Delay for y milliseconds
+    }
+    gpio_set_level(OUTPUT_PIN, false);
+    gpio_set_level(LED_PIN, false); // Set led off
 }
 
 void output_handler_task(void *arg)
@@ -73,7 +63,6 @@ void output_handler_task(void *arg)
     QueueHandle_t output_activation_queue = (QueueHandle_t)arg; // Encoder tick queue
 
     // Track the current beat count
-    // uint16_t beat = 0;
     bool signal;
 
     while (1)
@@ -81,16 +70,25 @@ void output_handler_task(void *arg)
         // Wait for output activation flag to be activated
         if (xQueueReceive(output_activation_queue, &signal, portMAX_DELAY))
         {
-            // Activate and deactivate the output after predermined duration
-            if (get_beat() == 0 || get_beat() == 1)
+            // Turn off everything if system is a sleep
+            if (get_system_state() == SYSTEM_OFF)
             {
-                click(1, true);
+                gpio_set_level(OUTPUT_PIN, false);
+                gpio_set_level(LED_PIN, false);
             }
             else
             {
-                click(1, false);
+                // Activate and deactivate the output after predermined duration
+                if (get_beat() == 1)
+                {
+                    click(true, true);
+                }
+                else
+                {
+                    click(false, false);
+                }
+                increment_beat();
             }
-            increment_beat();
         }
         vTaskDelay(pdMS_TO_TICKS(10)); // Adjust the delay as needed
     }

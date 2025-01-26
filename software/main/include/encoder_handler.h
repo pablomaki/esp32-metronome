@@ -16,6 +16,15 @@ typedef struct
 
 /**
  *
+ * Enter sleep mode handler
+ *
+ * @param encoder_reader_handle_t encoder object handle
+ * @return void.
+ */
+void handle_sleep_mode(encoder_reader_handle_t encoder);
+
+/**
+ *
  * Handle select button click
  *
  * @param int8_t previous direction
@@ -47,7 +56,7 @@ void encoder_handler_task(void *arg);
 /**
  * Create encoder, set it up based on given parameters and start
  *
- * @param queue Queue used by the encoder to pass ticks.
+ * @param void.
  * @return esp_err_t return fail in case anything fails during startup.
  */
 esp_err_t start_encoder_handler(void);

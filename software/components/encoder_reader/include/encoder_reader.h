@@ -15,12 +15,14 @@ struct encoder_reader
     uint64_t a_debounce_us;
     uint64_t b_debounce_us;
     uint64_t sw_debounce_us;
+    uint64_t sw_longpress_us;
     uint8_t pin_b_value;
     uint8_t pin_b_current_value;
     QueueHandle_t tick_queue;
     esp_timer_handle_t pin_a_timer;
     esp_timer_handle_t pin_b_timer;
     esp_timer_handle_t pin_sw_timer;
+    esp_timer_handle_t pin_sw_longpress_timer;
     void *arg;
     // LIST_ENTRY(encoder_reader)
     // list_entry;
@@ -57,6 +59,7 @@ typedef struct
     uint64_t a_debounce_us;
     uint64_t b_debounce_us;
     uint64_t sw_debounce_us;
+    uint64_t sw_longpress_us;
     QueueHandle_t tick_queue; //!< Function to call when tick to either direction happens
 } encoreder_reader_settings_t;
 
@@ -94,3 +97,27 @@ esp_err_t encoder_reader_setup(const encoreder_reader_settings_t *args,
  *      - ESP_ERR_NO_MEM if memory allocation fails
  */
 esp_err_t encoder_reader_start(encoder_reader_handle_t encoder_handle);
+
+/**
+ * @brief Enable an encoder reader instance
+ *
+ * @note Turn on the interrupts
+ *
+ * @param[out] encoder_handle  Output, pointer to encoder_reader_handle_t variable which
+ *                         will hold the created timer handle.
+ *
+ * @return void
+ */
+void encoder_reader_enable(encoder_reader_handle_t encoder_handle);
+
+/**
+ * @brief Disable an encoder reader instance
+ *
+ * @note Turn off the interrupts
+ *
+ * @param[out] encoder_handle  Output, pointer to encoder_reader_handle_t variable which
+ *                         will hold the created timer handle.
+ *
+ * @return void
+ */
+void encoder_reader_disable(encoder_reader_handle_t encoder_handle);
