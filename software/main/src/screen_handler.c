@@ -11,6 +11,7 @@
 
 static uint8_t *segment_image_numbers = NULL;
 static uint8_t *segment_image_signatures = NULL;
+// static uint8_t *segment_image_standby = NULL;
 static SSD1306_t dev;
 
 void get_indexes(uint16_t *arr)
@@ -57,7 +58,7 @@ void screen_update_handler_task(void *arg)
     // Initialize necesary parameters
     TickType_t x_last_wake_time;                      // Time when screen was updated
     const TickType_t x_frequency = pdMS_TO_TICKS(42); // 1000ms = 1 second
-    // bool screen_on = true;                           // Screen on/off during blinking
+    // bool clear_screen = false;                        // Screen on/off during blinking
 
     // Initialize the last wake time
     x_last_wake_time = xTaskGetTickCount();
@@ -68,9 +69,37 @@ void screen_update_handler_task(void *arg)
         {
             // Clear the screen
             ssd1306_clear_screen(&dev, false);
+            // ssd1306_contrast(&dev, 0x00);
+            // for (int page = 0; page < 8; page++)
+            // {
+            //     if (INVERT_SCREEN)
+            //     {
+            //         ssd1306_display_image(&dev, page, 96, &segment_image_standby[0 * 256 + page * 32], 32);
+            //         ssd1306_display_image(&dev, page, 64, &segment_image_standby[1 * 256 + page * 32], 32);
+            //         ssd1306_display_image(&dev, page, 32, &segment_image_standby[2 * 256 + page * 32], 32);
+            //         ssd1306_display_image(&dev, page, 0, &segment_image_standby[3 * 256 + page * 32], 32);
+            //     }
+            //     else
+            //     {
+            //         ssd1306_display_image(&dev, page, 0, &segment_image_standby[0 * 256 + page * 32], 32);
+            //         ssd1306_display_image(&dev, page, 32, &segment_image_standby[1 * 256 + page * 32], 32);
+            //         ssd1306_display_image(&dev, page, 64, &segment_image_standby[2 * 256 + page * 32], 32);
+            //         ssd1306_display_image(&dev, page, 96, &segment_image_standby[3 * 256 + page * 32], 32);
+            //     }
+            // }
+
+            // // Require clear screen after
+            // clear_screen = true;
         }
         else
         {
+            // // Clear the screen if required
+            // if (clear_screen)
+            // {
+            //     ssd1306_clear_screen(&dev, false);
+            //     clear_screen = false;
+            // }
+
             // Set contrast accordingly
             ssd1306_contrast(&dev, is_screen_dim() ? 0x00 : 0xFF);
 
@@ -112,7 +141,6 @@ esp_err_t conver_bitmap_to_image(uint8_t segment_display[][192], uint8_t *segmen
     {
         // ssd1306_clear_screen(&dev, false);
         ssd1306_bitmaps(&dev, 0, 0, segment_display[image_index], 32, 32, false);
-        // vTaskDelay(200 / portTICK_PERIOD_MS);
 
         // Get from internal buffer to local buffer
         // buffer is [8][128] 8 page 128 pixel
@@ -139,9 +167,10 @@ esp_err_t start_screen_handler(void)
     // Allocate memory for temporary buffer, Number image buffer and signature image buffer
     segment_image_numbers = (uint8_t *)malloc(NUMBER_IMAGES * 8 * 32);
     segment_image_signatures = (uint8_t *)malloc(SIGNATURE_IMAGES * 8 * 32);
+    // segment_image_standby = (uint8_t *)malloc(STANDBY_IMAGES * 8 * 32);
 
     // If memory allocation fails, handle error.
-    if (segment_image_numbers == NULL || segment_image_signatures == NULL)
+    if (segment_image_numbers == NULL || segment_image_signatures == NULL) // || segment_image_standby == NULL)
     {
         ESP_LOGE(TAG, "Segment image memory allocation failed.");
         return ESP_FAIL;
@@ -180,6 +209,19 @@ esp_err_t start_screen_handler(void)
         ESP_LOGE(TAG, "Segment image conversion failed.");
         return ESP_FAIL;
     }
+    // if (INVERT_SCREEN)
+    // {
+    //     ret = conver_bitmap_to_image(segment_display_standby_inverse, segment_image_standby, STANDBY_IMAGES);
+    // }
+    // else
+    // {
+    //     ret = conver_bitmap_to_image(segment_display_standby, segment_image_standby, STANDBY_IMAGES);
+    // }
+    // if (ret != ESP_OK)
+    // {
+    //     ESP_LOGE(TAG, "Segment image conversion failed.");
+    //     return ESP_FAIL;
+    // }
 
     // Free the buffer and clear the screen
     ssd1306_clear_screen(&dev, false);
