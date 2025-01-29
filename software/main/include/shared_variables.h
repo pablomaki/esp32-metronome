@@ -15,7 +15,6 @@ typedef enum
     SYSTEM_ON,
 } esp_system_state_t;
 
-
 /**
  * Initialize the semaphores
  *
@@ -59,10 +58,10 @@ uint16_t get_signature_mode(void);
 /**
  * Change the bpm candidate by bpm_delta but keep the bpm within limits of 1 and 999
  *
- * @param uint16_t bpm_delta : Change to apply to the candidate bpm
+ * @param int8_t bpm_delta : Change to apply to the candidate bpm
  * @return void.
  */
-void change_bpm(uint16_t bpm_delta);
+void change_bpm(int8_t bpm_delta);
 
 /**
  * Select the candidate bpm as the current selected bpm
@@ -78,7 +77,7 @@ void select_bpm(void);
  * @param void
  * @return selected bpm.
  */
-uint16_t get_selected_bpm(void);
+int16_t get_selected_bpm(void);
 
 /**
  * Return the current candidate bpm
@@ -86,7 +85,7 @@ uint16_t get_selected_bpm(void);
  * @param void
  * @return candidate bpm.
  */
-uint16_t get_candidate_bpm(void);
+int16_t get_candidate_bpm(void);
 
 /**
  * Reset the candidate bpm to selected bpm

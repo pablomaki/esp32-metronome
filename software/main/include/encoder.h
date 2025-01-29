@@ -1,5 +1,5 @@
-#ifndef ENCODER_HANDLER_H
-#define ENCODER_HANDLER_H
+#ifndef ENCODER_H
+#define ENCODER_H
 
 #include "encoder_reader.h"
 #include "freertos/FreeRTOS.h"
@@ -14,14 +14,21 @@ typedef struct
     int8_t direction;
 } action_t;
 
+// Function type for handling sleep state
+typedef esp_err_t (*sleep_handler_func_t)(void);
+
+// Encoder struct
+struct encoder
+{
+    encoder_reader_handle_t encoder_reader_handle;
+    TaskHandle_t encoder_task_handle;
+    QueueHandle_t sleep_request_queue_handle;
+};
+
 /**
- *
- * Enter sleep mode handler
- *
- * @param encoder_reader_handle_t encoder object handle
- * @return void.
+ * @brief Opaque type representing a single encoder_reader
  */
-void handle_sleep_mode(encoder_reader_handle_t encoder);
+typedef struct encoder *encoder_handle_t;
 
 /**
  *
@@ -51,7 +58,7 @@ int8_t handle_up_down(int8_t prev_direction, encoder_tick_t *tick, action_t *act
  * @param arg Arguments passed to the event.
  * @return void.
  */
-void encoder_handler_task(void *arg);
+void encoder_task(void *arg);
 
 /**
  * Create encoder, set it up based on given parameters and start
@@ -59,6 +66,23 @@ void encoder_handler_task(void *arg);
  * @param void.
  * @return esp_err_t return fail in case anything fails during startup.
  */
-esp_err_t start_encoder_handler(void);
+esp_err_t setup_encoder(encoder_handle_t encoder);
 
-#endif // ENCODER_HANDLER_H
+/**
+ * Start encoder
+ *
+ * @param void.
+ * @return esp_err_t return fail in case anything fails during startup.
+ */
+esp_err_t start_encoder(encoder_handle_t encoder);
+
+/**
+ * Stop encoder
+ *
+ * @param void.
+ * @return esp_err_t return fail in case anything fails during startup.
+ */
+esp_err_t stop_encoder(encoder_handle_t encoder);
+
+
+#endif // ENCODER_H

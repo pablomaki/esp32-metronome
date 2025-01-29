@@ -3,8 +3,8 @@
 #include "resources.h"
 
 esp_system_state_t system_state = SYSTEM_ON; // System ON/OFF state
-uint16_t bpm_selected = BPM_START;           // Baseline bpm
-uint16_t bpm_candidate = BPM_START;          // Baseline bpm
+int16_t bpm_selected = BPM_START;           // Baseline bpm
+int16_t bpm_candidate = BPM_START;          // Baseline bpm
 uint16_t signature_mode = SIGNATURE_START;   // Baseline bpm
 uint8_t current_beat = 1;                    // Starting beat
 SemaphoreHandle_t selected_bpm_semaphore = NULL;
@@ -83,11 +83,11 @@ uint16_t get_signature_mode(void)
     return mode;
 }
 
-void change_bpm(uint16_t bpm_delta)
+void change_bpm(int8_t bpm_delta)
 {
     if (xSemaphoreTake(candidate_bpm_semaphore, portMAX_DELAY) == pdTRUE)
     {
-        uint16_t new_bpm = bpm_candidate + bpm_delta;
+        int16_t new_bpm = bpm_candidate + bpm_delta;
         bpm_candidate = (new_bpm > 999) ? 999 : (new_bpm < 1 ? 1 : new_bpm);
         xSemaphoreGive(candidate_bpm_semaphore); // Release the mutex
     }
@@ -104,9 +104,9 @@ void select_bpm(void)
     }
 }
 
-uint16_t get_selected_bpm(void)
+int16_t get_selected_bpm(void)
 {
-    uint16_t bpm = BPM_START;
+    int16_t bpm = BPM_START;
     if (xSemaphoreTake(selected_bpm_semaphore, portMAX_DELAY) == pdTRUE)
     {
         bpm = bpm_selected;
@@ -115,9 +115,9 @@ uint16_t get_selected_bpm(void)
     return bpm;
 }
 
-uint16_t get_candidate_bpm(void)
+int16_t get_candidate_bpm(void)
 {
-    uint16_t bpm = BPM_START;
+    int16_t bpm = BPM_START;
     if (xSemaphoreTake(candidate_bpm_semaphore, portMAX_DELAY) == pdTRUE)
     {
         bpm = bpm_candidate;
@@ -156,7 +156,7 @@ esp_system_state_t get_system_state(void)
     if (xSemaphoreTake(system_state_semaphore, portMAX_DELAY) == pdTRUE)
     {
         state = system_state;
-        xSemaphoreGive(system_state_semaphore);  // Release the mutex
+        xSemaphoreGive(system_state_semaphore); // Release the mutex
     }
     return state;
 }
@@ -166,15 +166,15 @@ void switch_system_off(void)
     if (xSemaphoreTake(system_state_semaphore, portMAX_DELAY) == pdTRUE)
     {
         system_state = SYSTEM_OFF;
-        xSemaphoreGive(system_state_semaphore);  // Release the mutex
+        xSemaphoreGive(system_state_semaphore); // Release the mutex
     }
 }
 
 void switch_system_on(void)
-{    
+{
     if (xSemaphoreTake(system_state_semaphore, portMAX_DELAY) == pdTRUE)
     {
         system_state = SYSTEM_ON;
-        xSemaphoreGive(system_state_semaphore);  // Release the mutex
+        xSemaphoreGive(system_state_semaphore); // Release the mutex
     }
 }

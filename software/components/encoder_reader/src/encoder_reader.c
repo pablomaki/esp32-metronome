@@ -1,5 +1,5 @@
 #include "../include/encoder_reader.h"
-
+#include "esp_log.h"
 SemaphoreHandle_t semaphore;
 static void IRAM_ATTR pin_a_isr_handler(void *arg)
 {
@@ -56,7 +56,7 @@ static void IRAM_ATTR pin_sw_isr_handler(void *arg)
         }
         else
         {
-            // Stop long press timer            
+            // Stop long press timer
             if (esp_timer_is_active(encoder_handle->pin_sw_longpress_timer))
             {
                 ESP_ERROR_CHECK(esp_timer_stop(encoder_handle->pin_sw_longpress_timer));
@@ -170,7 +170,7 @@ esp_err_t encoder_reader_setup(const encoreder_reader_settings_t *args,
     return ESP_OK;
 }
 
-esp_err_t encoder_reader_start(encoder_reader_handle_t encoder_handle)
+esp_err_t encoder_reader_enable(encoder_reader_handle_t encoder_handle)
 {
     // Create timers for debouncing the switches
     const esp_timer_create_args_t pin_a_debounce_timer_args = {
@@ -197,13 +197,8 @@ esp_err_t encoder_reader_start(encoder_reader_handle_t encoder_handle)
     ESP_ERROR_CHECK(esp_timer_create(&pin_sw_longpress_timer_args, &encoder_handle->pin_sw_longpress_timer));
 
     // Enable ISR service and interrupts for pins
-    encoder_reader_enable(encoder_handle);
-    return ESP_OK;
-}
-
-void encoder_reader_enable(encoder_reader_handle_t encoder_handle)
-{    
     gpio_install_isr_service(0);
+    
     // Configure the GPIO pins as input, with pullup
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << encoder_handle->pin_a | 1ULL << encoder_handle->pin_b | 1ULL << encoder_handle->pin_sw),
@@ -216,6 +211,8 @@ void encoder_reader_enable(encoder_reader_handle_t encoder_handle)
     gpio_isr_handler_add(encoder_handle->pin_a, pin_a_isr_handler, (void *)encoder_handle);
     gpio_isr_handler_add(encoder_handle->pin_b, pin_b_isr_handler, (void *)encoder_handle);
     gpio_isr_handler_add(encoder_handle->pin_sw, pin_sw_isr_handler, (void *)encoder_handle);
+
+    return ESP_OK;
 }
 
 void encoder_reader_disable(encoder_reader_handle_t encoder_handle)

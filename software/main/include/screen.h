@@ -1,5 +1,21 @@
-#ifndef SCREEN_HANDLER_H
-#define SCREEN_HANDLER_H
+#ifndef SCREEN_H
+#define SCREEN_H
+
+#include "ssd1306.h"
+
+// Screen struct
+struct screen
+{
+    uint8_t *segment_image_numbers;
+    uint8_t *segment_image_signatures;
+    SSD1306_t dev;
+    TaskHandle_t update_screen_task;
+};
+
+/**
+ * @brief Opaque type representing a single encoder_reader
+ */
+typedef struct screen *screen_handle_t;
 
 /**
  * Populate input array with indexes for correct images to show on screen based on bpm and signature mode
@@ -33,7 +49,7 @@ void screen_update_handler_task(void *arg);
  * @param size_t image_count
  * @return esp_err_t return fail in case anything fails during conversion.
  */
-esp_err_t conver_bitmap_to_image(uint8_t segment_display[][192], uint8_t *segment_image, size_t image_count);
+esp_err_t conver_bitmap_to_image(uint8_t segment_display[][192], uint8_t *segment_image, size_t image_count, SSD1306_t dev);
 
 /**
  * Setup the screen and the load the images to buffer
@@ -41,6 +57,22 @@ esp_err_t conver_bitmap_to_image(uint8_t segment_display[][192], uint8_t *segmen
  * @param void.
  * @return esp_err_t return fail in case anything fails during startup.
  */
-esp_err_t start_screen_handler(void);
+esp_err_t setup_screen_handler(screen_handle_t screen_handle);
 
-#endif // SCREEN_HANDLER_H
+/**
+ * Start the screen
+ *
+ * @param void.
+ * @return esp_err_t return fail in case anything fails during startup.
+ */
+esp_err_t start_screen_handler(screen_handle_t screen_handle);
+
+/**
+ * Stop the screen task and clear the screen
+ *
+ * @param void.
+ * @return esp_err_t return fail in case anything fails during startup.
+ */
+esp_err_t stop_screen_handler(screen_handle_t screen_handle);
+
+#endif // SCREEN_H

@@ -34,12 +34,6 @@ struct encoder_reader
 typedef struct encoder_reader *encoder_reader_handle_t;
 
 /**
- * @brief Timer callback function type
- * @param arg pointer to opaque user-specific data
- */
-typedef void (*encoder_reader_cb_t)(void *arg);
-
-/**
  * @brief Encoder state change type, keeps track of time as well
  */
 typedef struct
@@ -66,8 +60,6 @@ typedef struct
 /**
  * @brief Create an encoder reader instance
  *
- * @note When done using the timer, delete it with encoder_reader_delete function.
- *
  * @param args   Pointer to a structure with timer creation arguments.
  *                      Not saved by the library, can be allocated on the stack.
  * @param[out] out_handle  Output, pointer to encoder_reader_handle_t variable which
@@ -85,35 +77,16 @@ esp_err_t encoder_reader_setup(const encoreder_reader_settings_t *args,
 /**
  * @brief Start an encoder reader instance
  *
- * @note When done using the timer, delete it with encoder_reader_delete function.
- *
  * @param[out] encoder_handle  Output, pointer to encoder_reader_handle_t variable which
  *                         will hold the created timer handle.
  *
  * @return
  *      - ESP_OK on success
- *      - ESP_ERR_INVALID_ARG if some of the create_args are not valid
- *      - ESP_ERR_INVALID_STATE if encoder_reader library is not initialized yet
- *      - ESP_ERR_NO_MEM if memory allocation fails
  */
-esp_err_t encoder_reader_start(encoder_reader_handle_t encoder_handle);
-
-/**
- * @brief Enable an encoder reader instance
- *
- * @note Turn on the interrupts
- *
- * @param[out] encoder_handle  Output, pointer to encoder_reader_handle_t variable which
- *                         will hold the created timer handle.
- *
- * @return void
- */
-void encoder_reader_enable(encoder_reader_handle_t encoder_handle);
+esp_err_t encoder_reader_enable(encoder_reader_handle_t encoder_handle);
 
 /**
  * @brief Disable an encoder reader instance
- *
- * @note Turn off the interrupts
  *
  * @param[out] encoder_handle  Output, pointer to encoder_reader_handle_t variable which
  *                         will hold the created timer handle.

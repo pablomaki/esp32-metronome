@@ -1,43 +1,10 @@
-#include "encoder_handler.h"
+#include "encoder.h"
 #include "shared_variables.h"
-#include "esp_sleep.h"
 
+// GLobal variables for tracking buttns
 action_t action_select = {0, 0, 0};
 action_t action_up = {0, 0, 1};
 action_t action_down = {0, 0, -1};
-
-void handle_sleep_mode(encoder_reader_handle_t encoder)
-{
-    // Enter sleep mode with SW pin as the wakeup
-    static const char *TAG = "encoder_handler_task";
-    ESP_LOGI(TAG, "Sleep mode requested, handling request");
-
-    // Turn off the screen, LED and output device. Wait for the action to take effect
-    switch_system_off();
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    // Disable existing interrupt
-    encoder_reader_disable(encoder);
-
-    // Enable ENC_SW_PIN as sleep wakeup pin
-    gpio_wakeup_enable(ENC_SW_PIN, GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
-    ESP_LOGI(TAG, "Waiting for GPIO%d to go high.", ENC_SW_PIN);
-    while (gpio_get_level(ENC_SW_PIN) == 0) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-
-    // Enter sleep mode
-    ESP_LOGI(TAG, "Entring sleep mode... Wake up configured to GPIO%d", ENC_SW_PIN);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    esp_light_sleep_start();
-
-    // Exit sleep mode. Wait for a bit before switching the system on to avoid unnecessary GPIO callbacks
-    ESP_LOGI(TAG, "Exiting sleep mode, enabling interrput back for GPIO%d pin.", ENC_SW_PIN);
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    switch_system_on();
-    encoder_reader_enable(encoder);
-}
 
 void handle_select(int8_t prev_direction, encoder_tick_t *tick)
 {
@@ -59,25 +26,6 @@ void handle_select(int8_t prev_direction, encoder_tick_t *tick)
         ESP_LOGI(TAG, "Changing the signature mode");
         change_signature_mode();
     }
-
-    // // In case of doubleclick, change signature mode and reset double click counter
-    // if (tick->time - action_select.prev_tick_time < DOUBLE_CLICK_US && tick->direction == prev_direction && action_select.consecutive_ticks > 0)
-    // {
-    //     ESP_LOGI(TAG, "Changing the signature mode");
-    //     change_signature_mode();
-    //     action_select.consecutive_ticks = 0;
-    // }
-    // // In case of single click, select the bpm
-    // else
-    // {
-    //     // Select the current bpm
-    //     ESP_LOGI(TAG, "Changing the bpm to %d", get_candidate_bpm());
-    //     select_bpm();
-
-    //     // Update select button info and set direction as previous direction
-    //     action_select.consecutive_ticks++;
-    //     action_select.prev_tick_time = tick->time;
-    // }
 }
 
 int8_t handle_up_down(int8_t prev_direction, encoder_tick_t *tick, action_t *action)
@@ -112,16 +60,16 @@ int8_t handle_up_down(int8_t prev_direction, encoder_tick_t *tick, action_t *act
     return action->consecutive_ticks > 3 ? tick->direction * FAST_CHANGE_MULTIPLIER : tick->direction;
 }
 
-void encoder_handler_task(void *arg)
+void encoder_task(void *arg)
 {
     // Create tag
     static const char *TAG = "encoder_handler_task";
     ESP_LOGI(TAG, "Encoder handler task initiated.");
 
     // Unpack the necessary parameters
-    void** args = (void**)arg;
-    encoder_reader_handle_t encoder = (encoder_reader_handle_t)args[0];
-    QueueHandle_t encoder_tick_queue = (QueueHandle_t)args[1];
+    encoder_handle_t encoder = (encoder_handle_t)arg;
+    encoder_reader_handle_t encoder_reader = encoder->encoder_reader_handle;
+    QueueHandle_t encoder_tick_queue = encoder_reader->tick_queue;
 
     // Define necessary parameters
     encoder_tick_t tick;
@@ -132,6 +80,12 @@ void encoder_handler_task(void *arg)
     {
         if (xQueueReceive(encoder_tick_queue, &tick, pdMS_TO_TICKS(5000)))
         {
+            // Do nothing in system off state
+            if (get_system_state() == SYSTEM_OFF)
+            {
+                vTaskDelay(pdMS_TO_TICKS(10));
+                continue;
+            }
             // Handle bpm set command
             if (tick.direction == 0)
             {
@@ -139,9 +93,12 @@ void encoder_handler_task(void *arg)
                 prev_direction = tick.direction;
                 continue;
             }
+            // Handle system sleep mode request
             else if (tick.direction == 10)
             {
-                handle_sleep_mode(encoder);
+                bool signal = true; // Just a simple boolean signal
+                xQueueSend(encoder->sleep_request_queue_handle, &signal, (TickType_t)0);
+                continue;
             }
             // Handle down click and get multiplier for changing the bpm value
             else if (tick.direction == -1)
@@ -172,10 +129,10 @@ void encoder_handler_task(void *arg)
     }
 }
 
-esp_err_t start_encoder_handler(void)
+esp_err_t setup_encoder(encoder_handle_t encoder)
 {
     // Create tag
-    const char *TAG = "start_encoder_reader";
+    const char *TAG = "setup_encoder";
     ESP_LOGI(TAG, "Encoder setup started.");
 
     // Create encoder action queue
@@ -189,7 +146,6 @@ esp_err_t start_encoder_handler(void)
         return ESP_FAIL;
     }
 
-    static encoder_reader_handle_t encoder;
     const encoreder_reader_settings_t encoder_reader_settings = {
         .pin_a = ENC_A_PIN,
         .pin_b = ENC_B_PIN,
@@ -203,14 +159,26 @@ esp_err_t start_encoder_handler(void)
 
     // Setup encoder reader, return error if not succesful
     esp_err_t ret;
-    ret = encoder_reader_setup(&encoder_reader_settings, &encoder);
+    ret = encoder_reader_setup(&encoder_reader_settings, &encoder->encoder_reader_handle);
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "Encoder reader setup failed.");
         return ret;
     }
+
+    ESP_LOGI(TAG, "Encoder setup finished.");
+    return ESP_OK;
+}
+
+esp_err_t start_encoder(encoder_handle_t encoder)
+{
+    // Create tag
+    const char *TAG = "start_encoder";
+    ESP_LOGI(TAG, "Encoder startup initiated.");
+
     // Start encoder reader, return error if not succesful
-    ret = encoder_reader_start(encoder);
+    esp_err_t ret;
+    ret = encoder_reader_enable(encoder->encoder_reader_handle);
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "Encoder reader startup failed.");
@@ -218,19 +186,30 @@ esp_err_t start_encoder_handler(void)
     }
 
     // Setup task parameters and start the task
-    // Create a void* array to hold both arguments
-    void* args[2];
-    args[0] = (void*)encoder;              // Cast encoder to void*
-    args[1] = (void*)encoder_action_queue; // Cast queue to void*
-
     BaseType_t x_returned;
-    x_returned = xTaskCreate(encoder_handler_task, "encoder_handler_task", 2048, (void *)args, 10, NULL);
-    if (x_returned != pdPASS)
+    if (encoder->encoder_task_handle == NULL)
     {
-        ESP_LOGE(TAG, "Encoder handler task creation failed.");
-        return ESP_FAIL;
+        x_returned = xTaskCreate(encoder_task, "encoder_task", 2048, (void *)encoder, 10, &(encoder->encoder_task_handle));
+        if (x_returned != pdPASS)
+        {
+            ESP_LOGE(TAG, "Encoder task creation failed.");
+            return ESP_FAIL;
+        }
     }
 
-    ESP_LOGI(TAG, "Encoder setup finished.");
+    ESP_LOGI(TAG, "Encoder started.");
+    return ESP_OK;
+}
+
+esp_err_t stop_encoder(encoder_handle_t encoder)
+{
+    // Create tag
+    const char *TAG = "stop_encoder";
+    ESP_LOGI(TAG, "Encoder stop initiated.");
+
+    // Stop encoder reader
+    encoder_reader_disable(encoder->encoder_reader_handle);
+
+    ESP_LOGI(TAG, "Encoder stopped.");
     return ESP_OK;
 }
